@@ -1,0 +1,5 @@
+__pycache__/
+test.py
+venv/
+static/data/images/
+sample_receive/
