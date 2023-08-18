@@ -432,8 +432,8 @@ class Bot():
                     
                     #tot_amount=100 #Testing purpose
 
-                    tot_amount=option
-                    payment_data=self.generate_payment_link(tot_amount)
+                    tot_amount=int(option)
+                    payment_data=self.generate_payment_link(tot_amount*100)
         
                     payment_id=payment_data['id']
                     payment_link=payment_data['short_url']
