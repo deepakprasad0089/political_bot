@@ -29,7 +29,7 @@ PAY_PASSWORD=os.getenv("PAY_PASSWORD")
 app= Flask(__name__)
 
 
-UPLOAD_FOLDER = 'static'
+UPLOAD_FOLDER = 'static/data/images'
 
 app.secret_key = b'_m9y2L*79xQ8z\n\xec]/'
 

@@ -406,9 +406,10 @@ class Bot():
                 try:
                     filename= re.findall("data.+", self.dict_message["data"])[0]
                     if (_type!="image" or _type!="document") and not allowed_file(filename):
+                        
                         raise Exception
                     
-                    filename=filename.split("/")[-1]
+                    
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -433,7 +434,7 @@ class Bot():
                     if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename=filename.split("/")[-1]
+                    
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -456,7 +457,7 @@ class Bot():
                     if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename=filename.split("/")[-1]
+                    
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -678,7 +679,7 @@ class Bot():
                     if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename=filename.split("/")[-1]
+                    
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -739,7 +740,7 @@ class Bot():
                     if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename=filename.split("/")[-1]
+                    
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
