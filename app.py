@@ -42,7 +42,7 @@ db = mongo.db
 
 @app.route('/', methods=['GET'])
 def home():
-    return "Bot Live 2.0"
+    return "Bot Live 3.0"
 
 @app.route('/webhook', methods=['POST', 'GET'])
 def hook():

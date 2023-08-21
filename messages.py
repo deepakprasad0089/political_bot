@@ -17,7 +17,7 @@ load_dotenv()
 
 API_URL=os.getenv("API_URL")
 ACCESS_TOKEN=os.getenv("ACCESS_TOKEN")
-#IMAGES_DIR=os.getenv("IMAGES_DIR")
+IMAGES_DIR=os.getenv("IMAGES_DIR")
 
 
 
