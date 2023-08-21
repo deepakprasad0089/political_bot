@@ -755,7 +755,7 @@ class Bot():
             # -------------------- Wish Post ----------------------------------------------#
             elif state=="wish":
                 try:
-                   if text.lower not in wish_list[chat_lang]:
+                   if text.lower() not in wish_list[chat_lang]:
                        raise Exception
                    update=1
                    state=f"design.{state}"

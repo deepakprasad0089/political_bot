@@ -7,7 +7,7 @@ enroll_list={"english":["first time enroll", "enrolled & subscribed", "enrolled 
 political_party_list={"english":["DMK","ADMK","PMK","BJP","Congress","ntk","Communist","AMMK","DMDK"],
                  "tamil":["தி.மு.க","அ.தி.மு.க","பா.ம.க", "பா.ஜ.க","காங்கிரஸ்","என்டிகே","கம்யூனிஸ்ட்","அமமுக","தே.மு.தி.க"]}
 
-design_list = {"english":["social media","banner"],
+design_list = {"english":["social media post","banner"],
                "tamil":["சமூக ஊடக இடுகை", "பதாகை"]}
 
 post_size_list = {"english":["whatsapp","facebook","instagram"],
