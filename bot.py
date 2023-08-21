@@ -8,34 +8,10 @@ from requests.auth import HTTPBasicAuth
 import json
 import datetime
 from googletrans import Translator
+from utils import *
 
 allowed_extensions=["png", "jpg", "jpeg"]
 
-lang_list=["english", "tamil", "hindi", "telugu", "malayalam", "kannada"]
-
-enroll_list={"english":["first time enroll", "enrolled & subscribed", "enrolled not subscribed"],
-             "tamil":["முதல் பதிவு", "சந்தா","குழுசேரவில்லை"]}
-
-political_party_list={"english":["DMK","ADMK","PMK","BJP","Congress","ntk","Communist","AMMK","DMDK"],
-                 "tamil":["தி.மு.க","அ.தி.மு.க","பா.ம.க", "பா.ஜ.க","காங்கிரஸ்","என்டிகே","கம்யூனிஸ்ட்","அமமுக","தே.மு.தி.க"]}
-
-design_list = {"english":["social media","banner"],
-               "tamil":["சமூக ஊடக இடுகை", "பதாகை"]}
-
-post_size_list = {"english":["whatsapp","facebook","instagram"],
-                  "tamil":["பகிரி","இன்ஸ்டாகிராம்", "முகநூல்"]}
-
-post_type_list={"english":["image", "video"],
-                "tamil":["படம்", "வீடியோ"]}
-
-post_design_list={"english":["birthday post", "regular wishes post","congratulation post","welcome post", "achievement post","protest post", "self quote post","quotes post","work update post"],
-                  "tamil":["பிறந்தநாள் இடுகை","வழக்கமான வாழ்த்து இடுகை","வாழ்த்து இடுகை", "வரவேற்பு இடுகை", "சாதனை இடுகை", "எதிர்ப்பு இடுகை", "சுய மேற்கோள் இடுகை","மேற்கோள் இடுகை","பணி புதுப்பிப்பு இடுகை" ]}
-
-wish_list={"english":["good morning","good evening","good night", "function wise"],
-           "tamil":["காலை வணக்கம்", "மாலை வணக்கம்", "இனிய இரவு","செயல்பாடு வாரியாக"]}
-
-work_list ={"english":["daily","weekly","monthly"],
-            "tamil":["தினசரி", "வாரந்தோறும்", "மாதாந்திர"]}
 
 
 
@@ -197,7 +173,7 @@ class Bot():
         else:
             pass
 
-
+    
     def restart_chatbot(self, waID):
         self.chat.update_chat(self.number,"lang", "lang", "")
         question= intent["lang"]["question"]
@@ -205,6 +181,18 @@ class Bot():
 
         return True
     
+    def keyword_state_change(self,text, state, update, new_state):
+        subscription_status= self.chat.get_enroll_status(self.number)
+        if subscription_status=="subscribed":
+            status=keyword_node(text)
+            if status!="None":
+                new_state=status
+                state="design.post_design"
+                update=1
+                return state, update, new_state
+        return False
+
+
     def generate_payment_link(self, amount):
         
         #reference_id = reference_id
@@ -280,16 +268,21 @@ class Bot():
         
         else:
             chat_lang= self.chat.get_chat_lang(self.number)  # chat lang chosen by user in "lang" step
-            
+            state=record["state"]
+            new_state=state
+            update =0
 
             if text=="Restart":
                 if self.restart_chatbot(self.number):
                    return "Chat has been Restarted "
                 
-            state=record["state"]
-            new_state=state
-            update =0
+            node_change_list= self.keyword_state_change(text,state,update,new_state)
+            if node_change_list !=False:
+                state=node_change_list[0]
+                update=node_change_list[1]
+                new_state=node_change_list[2]
 
+            
             if state=="lang":
                 try:
                     text=text.lower()
