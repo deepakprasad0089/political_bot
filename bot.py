@@ -7,8 +7,37 @@ import re
 from requests.auth import HTTPBasicAuth
 import json
 import datetime
+from googletrans import Translator
 
 allowed_extensions=["png", "jpg", "jpeg"]
+
+lang_list=["english", "tamil", "hindi", "telugu", "malayalam", "kannada"]
+
+enroll_list={"english":["first time enroll", "enrolled & subscribed", "enrolled not subscribed"],
+             "tamil":["முதல் பதிவு", "சந்தா","குழுசேரவில்லை"]}
+
+political_party_list={"english":["DMK","ADMK","PMK","BJP","Congress","ntk","Communist","AMMK","DMDK"],
+                 "tamil":["தி.மு.க","அ.தி.மு.க","பா.ம.க", "பா.ஜ.க","காங்கிரஸ்","என்டிகே","கம்யூனிஸ்ட்","அமமுக","தே.மு.தி.க"]}
+
+design_list = {"english":["social media","banner"],
+               "tamil":["சமூக ஊடக இடுகை", "பதாகை"]}
+
+post_size_list = {"english":["whatsapp","facebook","instagram"],
+                  "tamil":["பகிரி","இன்ஸ்டாகிராம்", "முகநூல்"]}
+
+post_type_list={"english":["image", "video"],
+                "tamil":["படம்", "வீடியோ"]}
+
+post_design_list={"english":["birthday post", "regular wishes post","congratulation post","welcome post", "achievement post","protest post", "self quote post","quotes post","work update post"],
+                  "tamil":["பிறந்தநாள் இடுகை","வழக்கமான வாழ்த்து இடுகை","வாழ்த்து இடுகை", "வரவேற்பு இடுகை", "சாதனை இடுகை", "எதிர்ப்பு இடுகை", "சுய மேற்கோள் இடுகை","மேற்கோள் இடுகை","பணி புதுப்பிப்பு இடுகை" ]}
+
+wish_list={"english":["good morning","good evening","good night", "function wise"],
+           "tamil":["காலை வணக்கம்", "மாலை வணக்கம்", "இனிய இரவு","செயல்பாடு வாரியாக"]}
+
+work_list ={"english":["daily","weekly","monthly"],
+            "tamil":["தினசரி", "வாரந்தோறும்", "மாதாந்திர"]}
+
+
 
 def allowed_file(filename):
   ext=filename.split(".")[-1]
@@ -108,6 +137,10 @@ class Chat():
     def get_enroll_status(self, number):
         data=self.db.find_one({'_id':number})
         return data["subscription"]
+    
+    def get_chat_lang(self, number):
+        data=self.db.find_one({'_id':number})
+        return data["lang"]
             
 
 class Bot():
@@ -146,19 +179,19 @@ class Bot():
     
 
 
-    def next_question(self, waID, state,custom_msg=""):
-        question= intent[state]["question"]+custom_msg
-        type=   intent[state]["type"]
+    def next_question(self, waID, state,chat_lang, custom_msg=""):
+        question= intent[chat_lang][state]["question"]+custom_msg
+        type=   intent[chat_lang][state]["type"]
 
         if type == "text":
                self.send_message(waID, question )
 
         elif type == "list":
-            list= intent[state]["list"]
+            list= intent[chat_lang][state]["list"]
             self.send_list(waID, question, list)
 
         elif type=="button":
-            button= intent[state]["button"]
+            button= intent[chat_lang][state]["button"]
             self.send_reply_button(waID, question, button)
 
         else:
@@ -208,7 +241,11 @@ class Bot():
         #print(res)
         return res
     
-    
+    def text_translate(self,lang, text):
+        translator = Translator()
+        result = translator.translate(text, dest=lang)
+        return result.text
+
 
 
     def processing(self):
@@ -219,41 +256,52 @@ class Bot():
         
         custom_msg=""
         order=0
+        chat_lang="english"
+        
         
         if self.dict_message["type"]=="interactive":
                 text =self.dict_message['listReply']["title"]
                 option= self.dict_message["listReply"]["title"]
         
+        elif self.dict_message["type"]=="button":
+            pass
+        
         # Checking whether waID present in db or not
         record= self.chat.is_waId_Exists(self.number)
 
+        
         if record == None:
            print("new")
            self.chat.create_chat(self.number)  
            update=1  
            state="lang"
            new_state=state
+           
         
         else:
+            chat_lang= self.chat.get_chat_lang(self.number)  # chat lang chosen by user in "lang" step
+            
 
             if text=="Restart":
                 if self.restart_chatbot(self.number):
                    return "Chat has been Restarted "
                 
-            
             state=record["state"]
             new_state=state
             update =0
 
             if state=="lang":
                 try:
-                    if text.lower() not in ["english", "tamil", "hindi", "telugu", "malayalam", "kannada"]:
+                    text=text.lower()
+                    if text not in ["english", "tamil", "hindi", "telugu", "malayalam", "kannada"]:
                         raise Exception
                     update=1
                     #old_state=state
+                    chat_lang=text
                     new_state="enroll"
                 
-                except:
+                except Exception as e:
+                    print(e)
                     err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
                     self.send_list(self.number,err_msg, intent[state]['list'] )
 
@@ -261,28 +309,30 @@ class Bot():
             elif state=="enroll":
                 #print("inside enroll")
                 try:
-                    if text.lower() not in ["first time enroll", "enrolled & subscribed", "enrolled not subscribed"]:
+                    if text.lower() not in enroll_list[chat_lang]:
                         raise Exception
                     subscription_status= self.chat.get_enroll_status(self.number)
 
-                    if text.lower()=="first time enroll"  :
+                    if text.lower() in ["first time enroll","முதல் பதிவு"]  :
                         new_state="name"
                         
 
-                    elif text.lower()=="enrolled & subscribed" and subscription_status=="subscribed":
+                    elif text.lower() in ["enrolled & subscribed","சந்தா"] and subscription_status=="subscribed":
                         new_state="design"
 
                     
-                    elif text.lower()=="enrolled not subscribed" and subscription_status=="enroll":
+                    elif text.lower() in ["enrolled not subscribed","குழுசேரவில்லை"] and subscription_status=="enroll":
                         new_state="plan"
                     
                     else:
                         if subscription_status=="subscribed":
-                            self.send_message(self.number, "You Have already subscribed")
+                            msg= self.text_translate(chat_lang,"You Have already subscribed")
+                            self.send_message(self.number,msg )
                             new_state="design"
 
                         elif subscription_status=="enroll":
-                            self.send_message(self.number, "You Have already Enrolled")
+                            msg= self.text_translate(chat_lang,"You Have already subscribed")
+                            self.send_message(self.number, msg)
                             new_state="plan"
                         else:
                             new_state="name"
@@ -294,8 +344,9 @@ class Bot():
                 
                 except Exception :
                     #print(e)
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
 
             elif state=="name":
                 try:
@@ -305,7 +356,9 @@ class Bot():
                     new_state="nickname"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             elif state=="nickname":
@@ -317,7 +370,8 @@ class Bot():
                     new_state="education"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             elif state=="education":
@@ -329,7 +383,8 @@ class Bot():
                     new_state="position"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input (Type None for no qualification)\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (Type None for no qualification)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             
@@ -342,16 +397,18 @@ class Bot():
                     new_state="face_photo"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input (Type None for no qualification)\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             
             elif state=="face_photo":
                 try:
-                    if _type!="image" and not allowed_file(text):
+                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    filename=filename.split("/")[-1]
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -363,18 +420,20 @@ class Bot():
                     text=file_url
                     new_state="standing_photo"
                 
-                except Exception as e:
+                except Exception as e: 
                     print(e)
-                    err_msg= f"Please Enter a Valid input (jpg, png, jpeg)\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (jpg, png, jpeg)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
 
             elif state=="standing_photo":
                 try:
-                    if _type!="image" and not allowed_file(text):
+                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    filename=filename.split("/")[-1]
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -386,16 +445,18 @@ class Bot():
                     new_state="side_photo"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input (jpg, png, jpeg)\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (jpg, png, jpeg)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
 
             elif state=="side_photo":
                 try:
-                    if _type!="image" and not allowed_file(text):
+                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    filename=filename.split("/")[-1]
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -408,33 +469,34 @@ class Bot():
                     new_state="political_party"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input (jpg, png, jpeg)\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (jpg, png, jpeg)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
 
             elif state=="political_party":
                 try:
-                    if text not in ["DMK","ADMK","PMK","BJP","Congress","ntk","Communist","AMMK","DMDK"]:
+                    if text not in political_party_list[chat_lang]:
                         raise Exception
                     update=1
                     #old_state=state
                     new_state="plan"
                 
                 except:
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_message(self.number,err_msg)
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
 
             
             elif state=="plan":
                 try:
-                    if option not in ["1500", "2500", "100"]:
+                    if text not in ["Rs 1500", "Rs 2500", "Rs 100"]:
                         raise Exception
                     
                     #tot_amount=100 #Testing purpose
-
-                    tot_amount=option
-                    payment_data=self.generate_payment_link(tot_amount)
-        
+                    text= re.findall("\d+", text)[0]
+                    tot_amount=int(text)
+                    payment_data=self.generate_payment_link(tot_amount*100)
                     payment_id=payment_data['id']
                     payment_link=payment_data['short_url']
                      
@@ -442,17 +504,18 @@ class Bot():
                     self.payment.create_payment(payment_id, payment_link)
                     
                     update=1
-                    custom_msg=f" of Rs{tot_amount}\n\n{payment_link}"
+
+                    
+                    custom_msg=f"{tot_amount}\n\n{payment_link}"
                     item_id=payment_id
                     new_state="payment"
                 
-                except Exception as e:
-                    print(e)
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                except Exception :
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
 
-            elif state=="active_plan":
-                pass
+            
 
             elif state=="payment":
 
@@ -463,9 +526,11 @@ class Bot():
 
                 if(payment_status=="paid"):    
                    self.payment.update_payment(pay_id, "paid", payment_details)
-
-                   self.send_message(self.number, "Images")
-                   self.send_message(self.number, "Terms and Conditions")
+                   
+                   msg1 = self.text_translate(chat_lang,"Images")
+                   msg2 = self.text_translate(chat_lang,"Terms and Conditions")
+                   self.send_message(self.number, msg1)
+                   self.send_message(self.number, msg2)
 
                    update=1
                    
@@ -474,17 +539,18 @@ class Bot():
                    new_state="end"
 
                 else:
-                   err_msg="You haven't made the payment .\nPlease pay the amount in the above link to proceed"
+                   warning_msg= self.text_translate(chat_lang, "You haven't made the payment .\nPlease pay the amount in the above link to proceed")
+                   err_msg= f"{warning_msg}"
                    self.send_message(self.number,err_msg) 
                 
             ##------------------------  Enrolled and Subscribed ------------------------------------------------------------ ##
             elif state=="design":
                 try:
-                 if text.lower() not in ["social media post","banner"]:
+                 if text.lower() not in design_list[chat_lang]:
                     raise Exception
                  
                    
-                 if text.lower()=="social media post":
+                 if text.lower()=="social media post" or text=="சமூக ஊடக இடுகை":
                      new_state="post_size"
                  else:
                      new_state="banner_size"
@@ -494,8 +560,9 @@ class Bot():
                  
                   
                 except:
-                   err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                   self.send_list(self.number,err_msg, intent[state]['list'] ) 
+                   warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                   err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                   self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] ) 
 
             elif state=="banner_size":
                 try:  
@@ -508,14 +575,15 @@ class Bot():
                     new_state="end"
                     
                 except:
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
                     
                     
 
             elif state=="post_size":
                 try:  
-                    if text.lower() not in ["whatsapp","facebook","instagram"]:
+                    if text.lower() not in post_size_list[chat_lang]:
                       raise Exception  
                     update=1
                    
@@ -523,14 +591,15 @@ class Bot():
                     new_state="post_type"
                     
                 except:
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
                     
                     
 
             elif state=="post_type":
                 try:  
-                    if text.lower() not in ["image", "video"]:
+                    if text.lower() not in post_type_list[chat_lang]:
                       raise Exception  
                     
                     update=1
@@ -539,37 +608,39 @@ class Bot():
                     new_state="post_design"
 
                 except:
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_reply_button(self.number,err_msg, intent[state]['button'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_reply_button(self.number,err_msg, intent[chat_lang][state]['button'] )
                     
                     
             
             elif state=="post_design":
                 try:  
-                    if text not in ["Birthday Post", "Regular Wishes Post","Congratulation Post","Welcome Post", "Achievement Post","Protest Post", "Self Quote Post","Quotes Post","Work Update Post"]:
+                    if text.lower() not in post_design_list[chat_lang]:
                       raise Exception  
                     
-                    if text in ["Birthday Post", "Congratulation Post","Welcome Post" ]:
+                    if text in ["Birthday Post", "Congratulation Post","Welcome Post","பிறந்தநாள் இடுகை", "வாழ்த்து இடுகை", "வரவேற்பு இடுகை" ]:
                         new_state="post_name"
 
-                    elif text =="Regular Wishes Post":
+                    elif text in ["Regular Wishes Post","வழக்கமான வாழ்த்து பதிவு"]:
                         new_state="wish"
 
-                    elif text =="Self Quote Post":
+                    elif text in ["Self Quote Post", "சுய மேற்கோள் இடுகை"]:
                         new_state="self_quote"
 
-                    elif text =="Quote Post":
+                    elif text in ["Quotes Post","மேற்கோள் இடுகை"]:
                         new_state="quote"
 
-                    elif text == "Work Update Post":
+                    elif text in ["Work Update Post", "பணி புதுப்பிப்பு இடுகை"]:
                         new_state="work"
 
                     update=1
                     state="design.post_design"
                         
                 except:
-                    err_msg= f"Please Enter a Valid input \n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
                     
                     
 
@@ -582,7 +653,8 @@ class Bot():
                    new_state="post_nickname"
 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
                     
@@ -595,16 +667,18 @@ class Bot():
                    state=f"design.{state}"
                    new_state="post_photo"
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
                     
 
             elif state=="post_photo":
                 try:
-                    if _type!="image" and not allowed_file(text):
+                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    filename=filename.split("/")[-1]
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -617,8 +691,9 @@ class Bot():
                     new_state="post_age"
                 
                 except Exception as e:
-                    print(e)
-                    err_msg= f"Please Enter a Valid input (jpg, png, jpeg)\n\n{intent[state]['question']}"
+                    #print(e)
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (jpg, png, jpeg)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             elif state=="post_age":
@@ -629,7 +704,8 @@ class Bot():
                    state=f"design.{state}"
                    new_state="post_position"
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             elif state=="post_position":
@@ -640,7 +716,8 @@ class Bot():
                    state=f"design.{state}"
                    new_state="post_message"
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             elif state=="post_message":
@@ -651,16 +728,18 @@ class Bot():
                    state=f"design.{state}"
                    new_state="post_photos"
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
 
             elif state=="post_photos":
                 try:
-                    if _type!="image" and not allowed_file(text):
+                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    if (_type!="image" or _type!="document") and not allowed_file(filename):
                         raise Exception
                     
-                    filename= re.findall("data.+", self.dict_message["data"])[0]
+                    filename=filename.split("/")[-1]
                     file_url=upload_image(filename, self.upload)
                     
                     if file_url==False:
@@ -674,14 +753,15 @@ class Bot():
                     new_state="end"
                 
                 except Exception as e:
-                    print(e)
-                    err_msg= f"Please Enter a Valid input (jpg, png, jpeg)\n\n{intent[state]['question']}"
+                    #print(e)
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input (jpg, png, jpeg)")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             # -------------------- Wish Post ----------------------------------------------#
             elif state=="wish":
                 try:
-                   if text.lower not in ["good morning","good evening","good night", "function wise"]:
+                   if text.lower not in wish_list[chat_lang]:
                        raise Exception
                    update=1
                    state=f"design.{state}"
@@ -689,8 +769,9 @@ class Bot():
                    new_state="end"
 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
-                    self.send_list(self.number,err_msg, intent[state]['list'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_list(self.number,err_msg, intent[chat_lang][state]['list'] )
 
             # ---------------------------------------------------------------------------- #    
 
@@ -705,7 +786,8 @@ class Bot():
                    new_state="end"
 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
 
@@ -723,7 +805,8 @@ class Bot():
                    new_state="end"
 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
                     self.send_message(self.number,err_msg)
 
             # ----------------------------------------------------------------------------- #
@@ -731,7 +814,7 @@ class Bot():
             # -------------------------------- Work Update Post ------------------------------ #
             elif state=="work":
                 try:
-                   if text.lower() not in ["daily","weekly","monthly"]:
+                   if text.lower() not in work_list[chat_lang]:
                        raise Exception
                    update=1
                    state=f"design.{state}"
@@ -739,8 +822,9 @@ class Bot():
                    new_state="end"
 
                 except:
-                    err_msg= f"Please Enter a Valid input\n\n{intent[state]['question']}"
-                    self.send_reply_button(self.number,err_msg, intent[state]['button'] )
+                    warning_msg= self.text_translate(chat_lang, "Please Enter a Valid input")
+                    err_msg= f"{warning_msg}\n\n{intent[chat_lang][state]['question']}"
+                    self.send_reply_button(self.number,err_msg, intent[chat_lang][state]['button'] )
 
             # -------------------------------------------------------------------------------- #
 
@@ -766,17 +850,19 @@ class Bot():
 
                       self.chat.update_chat(self.number,state, new_state, text, order_id, order)
                       
-                      self.send_message(self.number, "Order Created Successfully")
+                      success_msg= self.text_translate(chat_lang, "Order Created Successfully")
+                      self.send_message(self.number, success_msg )
                    else:
                       self.chat.update_chat(self.number,state, new_state, text)
 
 
                 elif new_state=="payment" :
                    self.chat.update_chat(self.number,state, new_state, text, item_id)
-                   self.next_question(self.number, new_state,custom_msg)
+                   self.next_question(self.number, new_state,chat_lang, custom_msg)
                 else:
+                    
                     self.chat.update_chat(self.number,state, new_state, text)
-                    self.next_question(self.number, new_state,custom_msg)
+                    self.next_question(self.number, new_state,chat_lang, custom_msg)
                 
 
 
