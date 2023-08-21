@@ -112,10 +112,13 @@ def get_media(filename):
 #----------------------------------------------------------- Image uploading on server -------------------------------------------------------#
 def upload_image(filename, loc):
     response= get_media(filename)
+    filename=filename.split("/")[-1]
     if response.status_code==200:
         #file=fs.put(response.content, filename=filename)
+        
         with open(f'{loc}/{filename}', "wb") as f:
-            f.write(response.content)
+                f.write(response.content)
+       
         #print(file)
         print("Upload Complete")
         return f"{loc}/{filename}"
